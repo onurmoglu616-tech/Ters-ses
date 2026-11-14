@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ters ses oyunu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{
+  --bg:#eef0f7;--card:#ffffff;--text:#14162b;--muted:#5d6180;--line:#d9dcec;
+  --a:#4338ca;--a-soft:#e4e2fb;--b:#0f766e;--b-soft:#d5f1ed;--rec:#dc2626;
+  color-scheme:light;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1020;--card:#181b30;--text:#eceef9;--muted:#9a9fc2;--line:#2b2f4d;
+    --a:#8b87ff;--a-soft:#26274f;--b:#4fd1c0;--b-soft:#163a3a;--rec:#ff6b6b;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1020;--card:#181b30;--text:#eceef9;--muted:#9a9fc2;--line:#2b2f4d;
+  --a:#8b87ff;--a-soft:#26274f;--b:#4fd1c0;--b-soft:#163a3a;--rec:#ff6b6b;color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+main{max-width:520px;margin:0 auto;padding:24px 18px 40px}
+h1{font-size:2rem;font-weight:800;letter-spacing:-.02em;margin:8px 0 4px}
+.sub{color:var(--muted);margin:0 0 20px}
+#status{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:20px;min-height:48px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;--c:var(--a);--cs:var(--a-soft)}
+.panel.b{--c:var(--b);--cs:var(--b-soft)}
+.panel h2{font-size:1.25rem;margin:0;color:var(--c)}
+.panel .hint{color:var(--muted);font-size:.92rem;margin:2px 0 14px}
+.rec{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.rbtn{width:76px;height:76px;border-radius:50%;border:4px solid var(--c);background:var(--cs);color:var(--c);font:inherit;font-weight:600;font-size:.9rem;cursor:pointer;flex:none}
+.rbtn.on{background:var(--rec);border-color:var(--rec);color:#fff;animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.rbtn.on{animation:none}}
+.len{font-size:1.1rem;font-weight:600}
+.len small{display:block;color:var(--muted);font-weight:400;font-size:.85rem}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:inherit}
+.act{min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-weight:600;cursor:pointer}
+.act.main{background:var(--c);border-color:var(--c);color:#fff}
+.panel.b .act.main{color:#04211f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .panel .act.main{color:#0e1020}}
+.act:disabled{opacity:.4;cursor:default}
+.del{grid-column:1/-1;min-height:40px;color:var(--muted);font-weight:400}
+.reset{width:100%;min-height:48px;margin-top:4px}
+.modal{position:fixed;inset:0;background:rgba(10,12,28,.6);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.modal[hidden]{display:none}
+.box{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:18px;padding:22px;max-width:380px;width:100%;display:flex;flex-direction:column;gap:10px}
+.box h2{margin:0;font-size:1.3rem}
+.box p{margin:0;color:var(--muted)}
+.box .act.main{background:#4338ca;border-color:#4338ca;color:#fff}
+:focus-visible{outline:3px solid var(--c,var(--a));outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Ters ses oyunu</h1>
+  <p class="sub">Oyuncu bir şey söyler, rakip tersten dinleyip aslını bulmaya çalışır.</p>
+  <div id="status" role="status">Hazır. Oyuncu kaydı başlatsın.</div>
+  <div id="panels"></div>
+  <button class="act reset" id="reset">Tüm kayıtları sil</button>
+</main>
+<div class="modal" id="mic-modal" role="dialog" aria-modal="true" aria-labelledby="mic-title" hidden>
+  <div class="box">
+    <h2 id="mic-title">Mikrofon izni gerekli</h2>
+    <p>Sesini kaydedebilmek için mikrofonuna erişmem lazım. Kayıtlar sadece bu cihazda kalır, hiçbir yere gönderilmez.</p>
+    <p>Devam et’e basınca tarayıcı bir izin sorusu gösterecek. Orada <strong>İzin ver</strong> (Allow) seçeneğine dokun.</p>
+    <button class="act main" id="mic-go">Devam et</button>
+    <button class="act" id="mic-no">Vazgeç</button>
+  </div>
+</div>
+<script>
+(function(){
+  var SLOTS=[
+    {key:"orijinal",title:"Oyuncu",hint:"Söylediğin asıl söz",cls:""},
+    {key:"tahmin",title:"Rakip",hint:"Tersten dinleyip tahmin ettiği söz",cls:"b"}
+  ];
+  var mem={orijinal:null,tahmin:null},db=null,ctx=null,rec=null,src=null,armed=false,micOk=false;
+  try{micOk=localStorage.getItem("mic-ok")==="1"}catch(e){}
+  var $=function(id){return document.getElementById(id)};
+  function say(t){$("status").textContent=t}
+
+  /* depolama: IndexedDB, hata olursa sadece bellekte çalışır */
+  function openDB(){return new Promise(function(res){
+    try{var r=indexedDB.open("ters-ses",1);
+      r.onupgradeneeded=function(){r.result.createObjectStore("k")};
+      r.onsuccess=function(){db=r.result;res()};r.onerror=function(){res()};
+    }catch(e){res()}})}
+  function dbGet(k){return new Promise(function(res){
+    if(!db)return res(null);
+    try{var q=db.transaction("k").objectStore("k").get(k);
+      q.onsuccess=function(){res(q.result||null)};q.onerror=function(){res(null)};
+    }catch(e){res(null)}})}
+  function dbPut(k,v){if(!db)return;try{db.transaction("k","readwrite").objectStore("k").put(v,k)}catch(e){}}
+  function dbDel(k){if(!db)return;try{db.transaction("k","readwrite").objectStore("k").delete(k)}catch(e){}}
+
+  function getCtx(){
+    if(!ctx){var C=window.AudioContext||window.webkitAudioContext;ctx=new C()}
+    if(ctx.state==="suspended")ctx.resume();
+    return ctx;
+  }
+  function stopPlay(){if(src){try{src.stop()}catch(e){}src=null}}
+  function ask(go){
+    var m=$("mic-modal");m.hidden=false;
+    $("mic-go").onclick=function(){m.hidden=true;go()};
+    $("mic-no").onclick=function(){m.hidden=true;say("Mikrofon izni olmadan kayıt alınamaz.")};
+  }
+
+  function build(){
+    var box=$("panels");
+    SLOTS.forEach(function(s){
+      var d=document.createElement("section");
+      d.className="panel "+s.cls;
+      d.innerHTML=
+        '<h2>'+s.title+'</h2><p class="hint">'+s.hint+'</p>'+
+        '<div class="rec"><button class="rbtn" id="r-'+s.key+'" aria-label="'+s.title+' kaydı">Kaydet</button>'+
+        '<div class="len" id="l-'+s.key+'">Kayıt yok</div></div>'+
+        '<div class="row">'+
+        '<button class="act main" id="n-'+s.key+'">Normal dinle</button>'+
+        '<button class="act main" id="t-'+s.key+'">Ters dinle</button>'+
+        '<button class="act del" id="d-'+s.key+'">Bu kaydı sil</button></div>';
+      box.appendChild(d);
+      $("r-"+s.key).onclick=function(){toggle(s.key)};
+      $("n-"+s.key).onclick=function(){play(s.key,false)};
+      $("t-"+s.key).onclick=function(){play(s.key,true)};
+      $("d-"+s.key).onclick=function(){remove(s.key)};
+    });
+    $("reset").onclick=function(){
+      if(rec){say("Önce kaydı durdur.");return}
+      if(!armed){armed=true;$("reset").textContent="Emin misin? Silmek için tekrar dokun";
+        setTimeout(function(){armed=false;$("reset").textContent="Tüm kayıtları sil"},4000);return}
+      armed=false;$("reset").textContent="Tüm kayıtları sil";
+      SLOTS.forEach(function(s){mem[s.key]=null;dbDel(s.key)});stopPlay();refresh();say("Tüm kayıtlar silindi.");
+    };
+  }
+
+  function refresh(){
+    SLOTS.forEach(function(s){
+      var m=mem[s.key],has=!!m;
+      $("l-"+s.key).innerHTML=has?((m.data.length/m.rate).toFixed(1)+' sn<small>Kayıtlı, uygulama kapansa da kalır</small>'):'Kayıt yok';
+      $("n-"+s.key).disabled=!has;$("t-"+s.key).disabled=!has;$("d-"+s.key).disabled=!has;
+    });
+  }
+
+  function remove(k){
+    if(rec){say("Önce kaydı durdur.");return}
+    mem[k]=null;dbDel(k);stopPlay();refresh();say("Kayıt silindi.");
+  }
+
+  function toggle(k){
+    getCtx();
+    if(rec){
+      if(rec.key===k){rec.mr.stop()}else{say("Önce diğer kaydı durdur.")}
+      return;
+    }
+    stopPlay();
+    if(!navigator.mediaDevices||!window.MediaRecorder){
+      say("Bu tarayıcı kayıt almayı desteklemiyor. Safari veya Chrome ile aç.");return;
+    }
+    if(!micOk){ask(function(){start(k)});return}
+    start(k);
+  }
+
+  function start(k){
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+      micOk=true;try{localStorage.setItem("mic-ok","1")}catch(e){}
+      var mr=new MediaRecorder(stream),chunks=[],btn=$("r-"+k);
+      mr.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
+      mr.onstop=function(){
+        stream.getTracks().forEach(function(t){t.stop()});
+        rec=null;btn.classList.remove("on");btn.textContent="Kaydet";
+        new Blob(chunks,{type:mr.mimeType}).arrayBuffer()
+          .then(function(buf){return getCtx().decodeAudioData(buf)})
+          .then(function(ab){
+            var m={data:ab.getChannelData(0).slice(),rate:ab.sampleRate};
+            mem[k]=m;dbPut(k,m);refresh();
+            say("Kaydedildi. Şimdi dinleyebilirsin.");
+          })
+          .catch(function(){say("Kayıt çözülemedi, tekrar dene.")});
+      };
+      rec={key:k,mr:mr};
+      btn.classList.add("on");btn.textContent="Durdur";
+      say("Kaydediyor: "+SLOTS.filter(function(s){return s.key===k})[0].title+". Bitince Durdur'a dokun.");
+      mr.start();
+    }).catch(function(){
+      micOk=false;try{localStorage.removeItem("mic-ok")}catch(e){}
+      say("Mikrofon izni verilmedi. Adres çubuğundaki kilit simgesinden mikrofona izin ver, sonra tekrar dene.");
+    });
+  }
+
+  function play(k,rev){
+    if(rec){say("Önce kaydı durdur.");return}
+    var m=mem[k];if(!m){say("Bu bölümde kayıt yok.");return}
+    stopPlay();
+    var c=getCtx(),n=m.data.length,b=c.createBuffer(1,n,m.rate),d=b.getChannelData(0);
+    if(rev){for(var i=0;i<n;i++)d[i]=m.data[n-1-i]}else{d.set(m.data)}
+    src=c.createBufferSource();src.buffer=b;src.connect(c.destination);src.start();
+    say((rev?"Ters çalıyor: ":"Normal çalıyor: ")+SLOTS.filter(function(s){return s.key===k})[0].title);
+  }
+
+  build();refresh();
+  openDB().then(function(){
+    return Promise.all(SLOTS.map(function(s){return dbGet(s.key).then(function(v){
+      if(v&&v.data&&v.rate)mem[s.key]=v;
+    })}));
+  }).then(function(){
+    refresh();
+    if(mem.orijinal||mem.tahmin)say("Önceki kayıtlar yüklendi.");
+  });
+})();
+</script>
+</body>
+</html>
